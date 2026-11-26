@@ -1,0 +1,52 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: tienda_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - tienda_net
+
+  backend:
+    build: ./backend
+    container_name: tienda_backend
+    env_file: .env
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tienda_net
+
+  frontend:
+    build: ./frontend
+    container_name: tienda_frontend
+    environment:
+      VITE_BASE_API_URL: ${VITE_BASE_API_URL}
+      VITE_LOCAL_STORAGE_ITEM_NAME: ${VITE_LOCAL_STORAGE_ITEM_NAME}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - tienda_net
+
+volumes:
+  mysql_data:
+
+networks:
+  tienda_net:
+    driver: bridge
